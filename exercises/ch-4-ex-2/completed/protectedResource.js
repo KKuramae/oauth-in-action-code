@@ -34,19 +34,33 @@ var getAccessToken = function(req, res, next) {
 	}
 	
 	console.log('Incoming token: %s', inToken);
-	nosql.one(function(token) {
-		if (token.access_token == inToken) {
-			return token;	
-		}
-	}, function(err, token) {
-		if (token) {
-			console.log("We found a matching token: %s", inToken);
-		} else {
-			console.log('No matching token was found.');
-		}
-		req.access_token = token;
-		next();
-		return;
+	// nosql.one(function(token) {
+	// 	if (token.access_token == inToken) {
+	// 		return token;	
+	// 	}
+	// }, function(err, token) {
+	// 	if (token) {
+	// 		console.log("We found a matching token: %s", inToken);
+	// 	} else {
+	// 		console.log('No matching token was found.');
+	// 	}
+	// 	req.access_token = token;
+	// 	next();
+	// 	return;
+	// });
+	nosql.find().make(function(filter) {
+		filter.where('access_token', '=', inToken);
+	
+		filter.callback(function(err, token) {
+			if (token) {
+				console.log("We found a matching token: %s", inToken);
+			} else {
+				console.log('No matching token was found.');
+			}
+			req.access_token = token;
+			next();
+			return;
+		});
 	});
 };
 
@@ -61,7 +75,7 @@ var requireAccessToken = function(req, res, next) {
 var savedWords = [];
 
 app.get('/words', getAccessToken, requireAccessToken, function(req, res) {
-	if (__.contains(req.access_token.scope, 'read')) {
+	if (__.contains(req.access_token[0].scope, 'read')) {
 		res.json({words: savedWords.join(' '), timestamp: Date.now()});
 	} else {
 		res.set('WWW-Authenticate', 'Bearer realm=localhost:9002, error="insufficient_scope", scope="read"');
@@ -70,7 +84,7 @@ app.get('/words', getAccessToken, requireAccessToken, function(req, res) {
 });
 
 app.post('/words', getAccessToken, requireAccessToken, function(req, res) {
-	if (__.contains(req.access_token.scope, 'write')) {
+	if (__.contains(req.access_token[0].scope, 'write')) {
 		if (req.body.word) {
 			savedWords.push(req.body.word);
 		}
@@ -82,7 +96,7 @@ app.post('/words', getAccessToken, requireAccessToken, function(req, res) {
 });
 
 app.delete('/words', getAccessToken, requireAccessToken, function(req, res) {
-	if (__.contains(req.access_token.scope, 'delete')) {
+	if (__.contains(req.access_token[0].scope, 'delete')) {
 		savedWords.pop();
 		res.status(204).end();
 	} else {
