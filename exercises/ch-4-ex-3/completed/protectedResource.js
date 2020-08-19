@@ -34,19 +34,33 @@ var getAccessToken = function(req, res, next) {
 	}
 	
 	console.log('Incoming token: %s', inToken);
-	nosql.one(function(token) {
-		if (token.access_token == inToken) {
-			return token;	
-		}
-	}, function(err, token) {
-		if (token) {
-			console.log("We found a matching token: %s", inToken);
-		} else {
-			console.log('No matching token was found.');
-		}
-		req.access_token = token;
-		next();
-		return;
+	// nosql.one(function(token) {
+	// 	if (token.access_token == inToken) {
+	// 		return token;	
+	// 	}
+	// }, function(err, token) {
+	// 	if (token) {
+	// 		console.log("We found a matching token: %s", inToken);
+	// 	} else {
+	// 		console.log('No matching token was found.');
+	// 	}
+	// 	req.access_token = token;
+	// 	next();
+	// 	return;
+	// });
+	nosql.find().make(function(filter) {
+		filter.where('access_token', '=', inToken);
+	
+		filter.callback(function(err, token) {
+			if (token) {
+				console.log("We found a matching token: %s", inToken);
+			} else {
+				console.log('No matching token was found.');
+			}
+			req.access_token = token;
+			next();
+			return;
+		});
 	});
 };
 
@@ -60,13 +74,14 @@ var requireAccessToken = function(req, res, next) {
 
 app.get('/produce', getAccessToken, requireAccessToken, function(req, res) {
 	var produce = {fruit: [], veggies: [], meats: []};
-	if (__.contains(req.access_token.scope, 'fruit')) {
+	// change val req.access_token.scope -> req.access_token[0].scope
+	if (__.contains(req.access_token[0].scope, 'fruit')) {
 		produce.fruit = ['apple', 'banana', 'kiwi'];
 	}
-	if (__.contains(req.access_token.scope, 'veggies')) {
+	if (__.contains(req.access_token[0].scope, 'veggies')) {
 		produce.veggies = ['lettuce', 'onion', 'potato'];
 	}
-	if (__.contains(req.access_token.scope, 'meats')) {
+	if (__.contains(req.access_token[0].scope, 'meats')) {
 		produce.meats = ['bacon', 'steak', 'chicken breast'];
 	}
 	console.log('Sending produce: ', produce);
