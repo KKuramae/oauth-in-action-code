@@ -48,8 +48,8 @@ var getAccessToken = function(req, res, next) {
 	// 	next();
 	// 	return;
 	// });
-	nosql.find().make(function(filter) {
-		filter.where('access_token', '=', inToken);
+	nosql.one().make(function(filter) {
+		filter.where('access_token', inToken);
 	
 		filter.callback(function(err, token) {
 			if (token) {
