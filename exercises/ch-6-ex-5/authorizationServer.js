@@ -281,7 +281,7 @@ var generateTokens = function (req, res, clientId, user, scope, nonce, generateR
 	//var encodedPayload = base64url.encode(JSON.stringify(payload));
 
 	//var access_token = encodedHeader + '.' + encodedPayload + '.';
-	//var access_token = jose.jws.JWS.sign('HS256', stringHeader, stringPayload, new Buffer(sharedTokenSecret).toString('hex'));
+	//var access_token = jose.jws.JWS.sign('HS256', stringHeader, stringPayload, Buffer.from(sharedTokenSecret).toString('hex'));
 	var privateKey = jose.KEYUTIL.getKey(rsaKey);
 	var access_token = jose.jws.JWS.sign('RS256', stringHeader, stringPayload, privateKey);
 	*/
@@ -332,7 +332,7 @@ app.post("/token", function(req, res){
 	var auth = req.headers['authorization'];
 	if (auth) {
 		// check the auth header
-		var clientCredentials = new Buffer(auth.slice('basic '.length), 'base64').toString().split(':');
+		var clientCredentials = Buffer.from(auth.slice('basic '.length), 'base64').toString().split(':');
 		var clientId = querystring.unescape(clientCredentials[0]);
 		var clientSecret = querystring.unescape(clientCredentials[1]);
 	}
@@ -469,7 +469,7 @@ app.post('/revoke', function(req, res) {
 	var auth = req.headers['authorization'];
 	if (auth) {
 		// check the auth header
-		var clientCredentials = new Buffer(auth.slice('basic '.length), 'base64').toString().split(':');
+		var clientCredentials = Buffer.from(auth.slice('basic '.length), 'base64').toString().split(':');
 		var clientId = querystring.unescape(clientCredentials[0]);
 		var clientSecret = querystring.unescape(clientCredentials[1]);
 	}
@@ -515,7 +515,7 @@ app.post('/revoke', function(req, res) {
 
 app.post('/introspect', function(req, res) {
 	var auth = req.headers['authorization'];
-	var resourceCredentials = new Buffer(auth.slice('basic '.length), 'base64').toString().split(':');
+	var resourceCredentials = Buffer.from(auth.slice('basic '.length), 'base64').toString().split(':');
 	var resourceId = querystring.unescape(resourceCredentials[0]);
 	var resourceSecret = querystring.unescape(resourceCredentials[1]);
 
@@ -534,31 +534,57 @@ app.post('/introspect', function(req, res) {
 	
 	var inToken = req.body.token;
 	console.log('Introspecting token %s', inToken);
-	nosql.one(function(token) {
-		if (token.access_token == inToken) {
-			return token;	
-		}
-	}, function(err, token) {
-		if (token) {
-			console.log("We found a matching token: %s", inToken);
+	// nosql.one(function(token) {
+	// 	if (token.access_token == inToken) {
+	// 		return token;	
+	// 	}
+	// }, function(err, token) {
+	// 	if (token) {
+	// 		console.log("We found a matching token: %s", inToken);
 			
-			var introspectionResponse = {};
-			introspectionResponse.active = true;
-			introspectionResponse.iss = 'http://localhost:9001/';
-			introspectionResponse.sub = token.user;
-			introspectionResponse.scope = token.scope.join(' ');
-			introspectionResponse.client_id = token.client_id;
+	// 		var introspectionResponse = {};
+	// 		introspectionResponse.active = true;
+	// 		introspectionResponse.iss = 'http://localhost:9001/';
+	// 		introspectionResponse.sub = token.user;
+	// 		introspectionResponse.scope = token.scope.join(' ');
+	// 		introspectionResponse.client_id = token.client_id;
 						
-			res.status(200).json(introspectionResponse);
-			return;
-		} else {
-			console.log('No matching token was found.');
+	// 		res.status(200).json(introspectionResponse);
+	// 		return;
+	// 	} else {
+	// 		console.log('No matching token was found.');
 
-			var introspectionResponse = {};
-			introspectionResponse.active = false;
-			res.status(200).json(introspectionResponse);
-			return;
-		}
+	// 		var introspectionResponse = {};
+	// 		introspectionResponse.active = false;
+	// 		res.status(200).json(introspectionResponse);
+	// 		return;
+	// 	}
+	// });
+	nosql.one().make(function(filter) {
+		filter.where('access_token', inToken);
+	
+		filter.callback(function(err, token) {
+			if (token) {
+				console.log("We found a matching token: %s", inToken);
+				
+				var introspectionResponse = {};
+				introspectionResponse.active = true;
+				introspectionResponse.iss = 'http://localhost:9001/';
+				introspectionResponse.sub = token.user;
+				introspectionResponse.scope = token.scope.join(' ');
+				introspectionResponse.client_id = token.client_id;
+							
+				res.status(200).json(introspectionResponse);
+				return;
+			} else {
+				console.log('No matching token was found.');
+	
+				var introspectionResponse = {};
+				introspectionResponse.active = false;
+				res.status(200).json(introspectionResponse);
+				return;
+			}
+		});
 	});
 	
 	
@@ -756,19 +782,33 @@ var getAccessToken = function(req, res, next) {
 	}
 	
 	console.log('Incoming token: %s', inToken);
-	nosql.one(function(token) {
-		if (token.access_token == inToken) {
-			return token;	
-		}
-	}, function(err, token) {
-		if (token) {
-			console.log("We found a matching token: %s", inToken);
-		} else {
-			console.log('No matching token was found.');
-		}
-		req.access_token = token;
-		next();
-		return;
+	// nosql.one(function(token) {
+	// 	if (token.access_token == inToken) {
+	// 		return token;	
+	// 	}
+	// }, function(err, token) {
+	// 	if (token) {
+	// 		console.log("We found a matching token: %s", inToken);
+	// 	} else {
+	// 		console.log('No matching token was found.');
+	// 	}
+	// 	req.access_token = token;
+	// 	next();
+	// 	return;
+	// });
+	nosql.one().make(function(filter) {
+		filter.where('access_token', inToken);
+	
+		filter.callback(function(err, token) {
+			if (token) {
+				console.log("We found a matching token: %s", inToken);
+			} else {
+				console.log('No matching token was found.');
+			}
+			req.access_token = token;
+			next();
+			return;
+		});
 	});
 };
 
