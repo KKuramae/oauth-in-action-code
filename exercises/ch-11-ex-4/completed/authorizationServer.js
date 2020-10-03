@@ -253,29 +253,52 @@ app.post("/token", function(req, res){
 			return;
 		}
 	} else if (req.body.grant_type == 'refresh_token') {
-		nosql.one(function(token) {
-			if (token.refresh_token == req.body.refresh_token) {
-				return token;	
-			}
-		}, function(err, token) {
-			if (token) {
-				console.log("We found a matching refresh token: %s", req.body.refresh_token);
-				if (token.client_id != clientId) {
-					nosql.remove(function(found) { return (found == token); }, function () {} );
+		// nosql.one(function(token) {
+		// 	if (token.refresh_token == req.body.refresh_token) {
+		// 		return token;	
+		// 	}
+		// }, function(err, token) {
+		// 	if (token) {
+		// 		console.log("We found a matching refresh token: %s", req.body.refresh_token);
+		// 		if (token.client_id != clientId) {
+		// 			nosql.remove(function(found) { return (found == token); }, function () {} );
+		// 			res.status(400).json({error: 'invalid_grant'});
+		// 			return;
+		// 		}
+		// 		var access_token = randomstring.generate();
+		// 		nosql.insert({ access_token: access_token, client_id: clientId });
+		// 		var token_response = { access_token: access_token, token_type: 'Bearer',  refresh_token: token.refresh_token };
+		// 		res.status(200).json(token_response);
+		// 		return;
+		// 	} else {
+		// 		console.log('No matching token was found.');
+		// 		res.status(400).json({error: 'invalid_grant'});
+		// 		return;
+		// 	}
+		// });
+		nosql.one().make(function(filter) {
+			filter.where('refresh_token', req.body.refresh_token);
+		
+			filter.callback(function(err, token) {
+				if (token) {
+					console.log("We found a matching refresh token: %s", req.body.refresh_token);
+					if (token.client_id != clientId) {
+						nosql.remove(function(found) { return (found == token); }, function () {} );
+						res.status(400).json({error: 'invalid_grant'});
+						return;
+					}
+					var access_token = randomstring.generate();
+					nosql.insert({ access_token: access_token, client_id: clientId });
+					var token_response = { access_token: access_token, token_type: 'Bearer',  refresh_token: token.refresh_token };
+					res.status(200).json(token_response);
+					return;
+				} else {
+					console.log('No matching token was found.');
 					res.status(400).json({error: 'invalid_grant'});
 					return;
 				}
-				var access_token = randomstring.generate();
-				nosql.insert({ access_token: access_token, client_id: clientId });
-				var token_response = { access_token: access_token, token_type: 'Bearer',  refresh_token: token.refresh_token };
-				res.status(200).json(token_response);
-				return;
-			} else {
-				console.log('No matching token was found.');
-				res.status(400).json({error: 'invalid_grant'});
-				return;
-			}
-		});
+			});
+		});	
 	} else {
 		console.log('Unknown grant type %s', req.body.grant_type);
 		res.status(400).json({error: 'unsupported_grant_type'});
@@ -303,35 +326,67 @@ app.post('/introspect', function(req, res) {
 	
 	var inToken = req.body.token;
 	console.log('Introspecting token %s', inToken);
-	nosql.one(function(token) {
-		if (token.access_token == inToken) {
-			return token;	
-		}
-	}, function(err, token) {
-		if (token) {
-			console.log("We found a matching token: %s", inToken);
+	// nosql.one(function(token) {
+	// 	if (token.access_token == inToken) {
+	// 		return token;	
+	// 	}
+	// }, function(err, token) {
+	// 	if (token) {
+	// 		console.log("We found a matching token: %s", inToken);
 			
-			var introspectionResponse = {
-				active: true,
-				iss: 'http://localhost:9001/',
-				aud: 'http://localhost:9002/',
-				sub: token.user ? token.user.sub : undefined,
-				username: token.user ? token.user.preferred_username : undefined,
-				scope: token.scope ? token.scope.join(' ') : undefined,
-				client_id: token.client_id
-			};
+	// 		var introspectionResponse = {
+	// 			active: true,
+	// 			iss: 'http://localhost:9001/',
+	// 			aud: 'http://localhost:9002/',
+	// 			sub: token.user ? token.user.sub : undefined,
+	// 			username: token.user ? token.user.preferred_username : undefined,
+	// 			scope: token.scope ? token.scope.join(' ') : undefined,
+	// 			client_id: token.client_id
+	// 		};
 						
-			res.status(200).json(introspectionResponse);
-			return;
-		} else {
-			console.log('No matching token was found.');
+	// 		res.status(200).json(introspectionResponse);
+	// 		return;
+	// 	} else {
+	// 		console.log('No matching token was found.');
 
-			var introspectionResponse = {
-				active: false
-			};
-			res.status(200).json(introspectionResponse);
-			return;
-		}
+	// 		var introspectionResponse = {
+	// 			active: false
+	// 		};
+	// 		res.status(200).json(introspectionResponse);
+	// 		return;
+	// 	}
+	// });
+	nosql.one().make(function(filter) {
+		filter.where('access_token', inToken);
+
+		filter.callback(function(err, token) {
+			if (token) {
+				console.log("We found a matching token: %s", inToken);
+				
+				var introspectionResponse = {
+					active: true,
+					iss: 'http://localhost:9001/',
+					aud: 'http://localhost:9002/',
+					sub: token.user ? token.user.sub : undefined,
+					username: token.user ? token.user.preferred_username : undefined,
+					scope: token.scope ? token.scope.join(' ') : undefined,
+					client_id: token.client_id
+				};
+				
+				introspectionResponse.access_token_key = token.access_token_key;
+							
+				res.status(200).json(introspectionResponse);
+				return;
+			} else {
+				console.log('No matching token was found.');
+	
+				var introspectionResponse = {
+					active: false
+				};
+				res.status(200).json(introspectionResponse);
+				return;
+			}
+		});
 	});
 	
 	

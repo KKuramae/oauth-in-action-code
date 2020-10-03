@@ -75,13 +75,13 @@ var requireAccessToken = function(req, res, next) {
 app.get('/produce', getAccessToken, requireAccessToken, function(req, res) {
 	var produce = {fruit: [], veggies: [], meats: []};
 	// change val req.access_token.scope -> req.access_token[0].scope
-	if (__.contains(req.access_token[0].scope, 'fruit')) {
+	if (__.contains(req.access_token.scope, 'fruit')) {
 		produce.fruit = ['apple', 'banana', 'kiwi'];
 	}
-	if (__.contains(req.access_token[0].scope, 'veggies')) {
+	if (__.contains(req.access_token.scope, 'veggies')) {
 		produce.veggies = ['lettuce', 'onion', 'potato'];
 	}
-	if (__.contains(req.access_token[0].scope, 'meats')) {
+	if (__.contains(req.access_token.scope, 'meats')) {
 		produce.meats = ['bacon', 'steak', 'chicken breast'];
 	}
 	console.log('Sending produce: ', produce);
