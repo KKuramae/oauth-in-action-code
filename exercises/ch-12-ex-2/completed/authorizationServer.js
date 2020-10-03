@@ -210,29 +210,52 @@ app.post("/token", function(req, res){
 			return;
 		}
 	} else if (req.body.grant_type == 'refresh_token') {
-		nosql.one(function(token) {
-			if (token.refresh_token == req.body.refresh_token) {
-				return token;	
-			}
-		}, function(err, token) {
-			if (token) {
-				console.log("We found a matching refresh token: %s", req.body.refresh_token);
-				if (token.client_id != clientId) {
-					nosql.remove(function(found) { return (found == token); }, function () {} );
+		// nosql.one(function(token) {
+		// 	if (token.refresh_token == req.body.refresh_token) {
+		// 		return token;	
+		// 	}
+		// }, function(err, token) {
+		// 	if (token) {
+		// 		console.log("We found a matching refresh token: %s", req.body.refresh_token);
+		// 		if (token.client_id != clientId) {
+		// 			nosql.remove(function(found) { return (found == token); }, function () {} );
+		// 			res.status(400).json({error: 'invalid_grant'});
+		// 			return;
+		// 		}
+		// 		var access_token = randomstring.generate();
+		// 		nosql.insert({ access_token: access_token, client_id: clientId });
+		// 		var token_response = { access_token: access_token, token_type: 'Bearer',  refresh_token: token.refresh_token };
+		// 		res.status(200).json(token_response);
+		// 		return;
+		// 	} else {
+		// 		console.log('No matching token was found.');
+		// 		res.status(400).json({error: 'invalid_grant'});
+		// 		return;
+		// 	}
+		// });
+		nosql.one().make(function(filter) {
+			filter.where('refresh_token', req.body.refresh_token);
+		
+			filter.callback(function(err, token) {
+				if (token) {
+					console.log("We found a matching refresh token: %s", req.body.refresh_token);
+					if (token.client_id != clientId) {
+						nosql.remove(function(found) { return (found == token); }, function () {} );
+						res.status(400).json({error: 'invalid_grant'});
+						return;
+					}
+					var access_token = randomstring.generate();
+					nosql.insert({ access_token: access_token, client_id: clientId });
+					var token_response = { access_token: access_token, token_type: 'Bearer',  refresh_token: token.refresh_token };
+					res.status(200).json(token_response);
+					return;
+				} else {
+					console.log('No matching token was found.');
 					res.status(400).json({error: 'invalid_grant'});
 					return;
 				}
-				var access_token = randomstring.generate();
-				nosql.insert({ access_token: access_token, client_id: clientId });
-				var token_response = { access_token: access_token, token_type: 'Bearer',  refresh_token: token.refresh_token };
-				res.status(200).json(token_response);
-				return;
-			} else {
-				console.log('No matching token was found.');
-				res.status(400).json({error: 'invalid_grant'});
-				return;
-			}
-		});
+			});
+		});	
 	} else {
 		console.log('Unknown grant type %s', req.body.grant_type);
 		res.status(400).json({error: 'unsupported_grant_type'});
@@ -399,14 +422,27 @@ app.put('/register/:clientId', authorizeConfigurationEndpointRequest, function(r
 });
 
 app.delete('/register/:clientId', authorizeConfigurationEndpointRequest, function(req, res) {
-	clients = __.reject(clients, __.matches({client_id: req.client.client_id}));
+	// clients = __.reject(clients, __.matches({client_id: req.client.client_id}));
 
-	nosql.remove(function(token) {
-		if (token.client_id == req.client.client_id) {
-			return true;	
-		}
-	}, function(err, count) {
-		console.log("Removed %s clients", count);
+	// nosql.remove(function(token) {
+	// 	if (token.client_id == req.client.client_id) {
+	// 		return true;	
+	// 	}
+	// }, function(err, count) {
+	// 	console.log("Removed %s clients", count);
+	// });
+
+	// debug
+	// console.log(JSON.stringify(clients));
+	// console.log("client_id: %s", req.client.client_id);
+
+	nosql.remove().make(function(filter) {
+		filter.where('client_id', req.client.client_id);
+	
+		filter.callback(function(err, count) {
+			console.log("Removed %s clients", count);
+			return true;
+		});
 	});
 	
 	res.status(204).end();
