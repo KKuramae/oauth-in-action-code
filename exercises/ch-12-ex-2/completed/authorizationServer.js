@@ -422,7 +422,7 @@ app.put('/register/:clientId', authorizeConfigurationEndpointRequest, function(r
 });
 
 app.delete('/register/:clientId', authorizeConfigurationEndpointRequest, function(req, res) {
-	// clients = __.reject(clients, __.matches({client_id: req.client.client_id}));
+	clients = __.reject(clients, __.matches({client_id: req.client.client_id}));
 
 	// nosql.remove(function(token) {
 	// 	if (token.client_id == req.client.client_id) {
