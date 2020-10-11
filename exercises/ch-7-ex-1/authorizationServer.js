@@ -501,14 +501,24 @@ app.post('/revoke', function(req, res) {
 	}
 	
 	var inToken = req.body.token;
-	nosql.remove(function(token) {
-		if (token.access_token == inToken && token.client_id == clientId) {
-			return true;	
-		}
-	}, function(err, count) {
-		console.log("Removed %s tokens", count);
-		res.status(204).end();
-		return;
+	// nosql.remove(function(token) {
+	// 	if (token.access_token == inToken && token.client_id == clientId) {
+	// 		return true;	
+	// 	}
+	// }, function(err, count) {
+	// 	console.log("Removed %s tokens", count);
+	// 	res.status(204).end();
+	// 	return;
+	// });
+	nosql.remove().make(function(filter) {
+		filter.where('access_token', inToken);
+		filter.where('client_id', clientId);
+	
+		filter.callback(function(err, count) {
+			console.log("Removed %s tokens", count);
+			res.status(204).end();
+			return;
+		});
 	});
 	
 });
@@ -534,31 +544,57 @@ app.post('/introspect', function(req, res) {
 	
 	var inToken = req.body.token;
 	console.log('Introspecting token %s', inToken);
-	nosql.one(function(token) {
-		if (token.access_token == inToken) {
-			return token;	
-		}
-	}, function(err, token) {
-		if (token) {
-			console.log("We found a matching token: %s", inToken);
+	// nosql.one(function(token) {
+	// 	if (token.access_token == inToken) {
+	// 		return token;	
+	// 	}
+	// }, function(err, token) {
+	// 	if (token) {
+	// 		console.log("We found a matching token: %s", inToken);
 			
-			var introspectionResponse = {};
-			introspectionResponse.active = true;
-			introspectionResponse.iss = 'http://localhost:9001/';
-			introspectionResponse.sub = token.user;
-			introspectionResponse.scope = token.scope.join(' ');
-			introspectionResponse.client_id = token.client_id;
+	// 		var introspectionResponse = {};
+	// 		introspectionResponse.active = true;
+	// 		introspectionResponse.iss = 'http://localhost:9001/';
+	// 		introspectionResponse.sub = token.user;
+	// 		introspectionResponse.scope = token.scope.join(' ');
+	// 		introspectionResponse.client_id = token.client_id;
 						
-			res.status(200).json(introspectionResponse);
-			return;
-		} else {
-			console.log('No matching token was found.');
+	// 		res.status(200).json(introspectionResponse);
+	// 		return;
+	// 	} else {
+	// 		console.log('No matching token was found.');
 
-			var introspectionResponse = {};
-			introspectionResponse.active = false;
-			res.status(200).json(introspectionResponse);
-			return;
-		}
+	// 		var introspectionResponse = {};
+	// 		introspectionResponse.active = false;
+	// 		res.status(200).json(introspectionResponse);
+	// 		return;
+	// 	}
+	// });
+	nosql.one().make(function(filter) {
+		filter.where('access_token', inToken);
+
+		filter.callback(function(err, token) {
+			if (token) {
+				console.log("We found a matching token: %s", inToken);
+				
+				var introspectionResponse = {};
+				introspectionResponse.active = true;
+				introspectionResponse.iss = 'http://localhost:9001/';
+				introspectionResponse.sub = token.user;
+				introspectionResponse.scope = token.scope.join(' ');
+				introspectionResponse.client_id = token.client_id;
+							
+				res.status(200).json(introspectionResponse);
+				return;
+			} else {
+				console.log('No matching token was found.');
+	
+				var introspectionResponse = {};
+				introspectionResponse.active = false;
+				res.status(200).json(introspectionResponse);
+				return;
+			}
+		});
 	});
 	
 	
